@@ -2,6 +2,7 @@ package com.chat.chatroom;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.AppCompatButton;
 import androidx.appcompat.widget.AppCompatEditText;
@@ -12,6 +13,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import android.app.Dialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
@@ -99,7 +101,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         mInterstitialAd = new InterstitialAd(this);
-        mInterstitialAd.setAdUnitId("ca-app-pub-3940256099942544/1033173712");
+        mInterstitialAd.setAdUnitId(getResources().getString(R.string.adaptive_banner_ad_unit_id));
         mInterstitialAd.loadAd(new AdRequest.Builder().build());
         mInterstitialAd.setAdListener(new AdListener() {
             @Override
@@ -303,18 +305,102 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void onItemClick(User user) {
                         adclickUser = user;
-                        Log.e("UserId", adclickUser.getUserId());
-                        if (mInterstitialAd.isLoaded()) {
-                            mInterstitialAd.show();
+                       if(TextUtils.isEmpty(mUserId)){
+
+                           final Dialog dialog = new Dialog(MainActivity.this);
+                           dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+                           dialog.setCancelable(false);
+                           dialog.setContentView(R.layout.dialog_enter);
+
+                           final AppCompatEditText etName = dialog.findViewById(R.id.etName);
+                           final RadioButton radioMale = dialog.findViewById(R.id.rdbMale);
+                           final RadioButton radioFemale = dialog.findViewById(R.id.rdbFemale);
+
+                           final AppCompatButton btnEnter = dialog.findViewById(R.id.btnEnter);
+                           btnEnter.setOnClickListener(new View.OnClickListener() {
+                               @Override
+                               public void onClick(View v) {
+
+                                   if (radioMale.isChecked()) {
+                                       mGender = "Male";
+                                   } else {
+                                       mGender = "Female";
+                                   }
+
+                                   final String name = Objects.requireNonNull(etName.getText()).toString();
+                                   if (TextUtils.isEmpty(name)) {
+                                       etName.setError("Nick Name required");
+                                       return;
+                                   }
+                                   if (TextUtils.isEmpty(mGender)) {
+                                       Toast.makeText(MainActivity.this, "Select Gender", Toast.LENGTH_SHORT).show();
+                                       return;
+                                   }
+                                   mAuth = FirebaseAuth.getInstance();
+                                   mAuth.signInAnonymously()
+                                           .addOnCompleteListener(MainActivity.this, new OnCompleteListener<AuthResult>() {
+                                               @Override
+                                               public void onComplete(@NonNull Task<AuthResult> task) {
+                                                   if (task.isSuccessful()) {
+                                                       // Sign in success, update UI with the signed-in user's information
+                                                       Log.d(TAG, "signInAnonymously:success");
+                                                       FirebaseUser fuser = mAuth.getCurrentUser();
+                                                       DatabaseReference mDatabase = FirebaseDatabase.getInstance().getReference("users");
+                                                       // String userId = mDatabase.push().getKey();
+                                                       User user = new User(Objects.requireNonNull(fuser).getUid(), name, mGender, 1);
+                                                       mDatabase.child(Objects.requireNonNull(fuser).getUid()).setValue(user);
+
+                                                       SharedPreferences.Editor editor = sharedpreferences.edit();
+                                                       editor.putString(Const.USERID, fuser.getUid());
+                                                       editor.putString(Const.NAME, name);
+                                                       editor.putString(Const.GENDER, mGender);
+                                                       editor.apply();
+                                                       mUserId = fuser.getUid();
+                                                       mName = name;
+
+                                                       btnEnterMain.setVisibility(View.GONE);
+                                                       btnSend.setVisibility(View.VISIBLE);
+                                                       etMessage.setVisibility(View.VISIBLE);
+                                                       DatabaseReference mDatabaseMsg = FirebaseDatabase.getInstance().getReference("groupchat");
+                                                       String messageId = mDatabaseMsg.push().getKey();
+                                                       GroupMessage groupMessage = new GroupMessage(messageId, mUserId, mName, "has joined this room", 1);
+                                                       mDatabaseMsg.child(Objects.requireNonNull(messageId)).setValue(groupMessage);
+                                                       etMessage.setText("");
+
+                                                       // updateUI(user);
+                                                   } else {
+                                                       // If sign in fails, display a message to the user.
+                                                       Log.w(TAG, "signInAnonymously:failure", task.getException());
+                                                       Toast.makeText(MainActivity.this, "Authentication failed.",
+                                                               Toast.LENGTH_SHORT).show();
+                                                       //updateUI(null);
+                                                   }
+
+                                                   // ...
+                                               }
+                                           });
 
 
-                        } else {
-                            Intent i = new Intent(MainActivity.this, ChatActivity.class);
-                            i.putExtra("touserid", adclickUser.getUserId());
-                            i.putExtra("tousername", adclickUser.getName());
-                            i.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                            startActivity(i);
-                        }
+                                   dialog.dismiss();
+                               }
+                           });
+
+                           dialog.show();
+
+                       }else{
+                           if (mInterstitialAd.isLoaded()) {
+                               mInterstitialAd.show();
+
+
+                           } else {
+                               Intent i = new Intent(MainActivity.this, ChatActivity.class);
+                               i.putExtra("touserid", adclickUser.getUserId());
+                               i.putExtra("tousername", adclickUser.getName());
+                               i.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                               startActivity(i);
+                           }
+                       }
+
                     }
                 }));
             }
@@ -471,12 +557,17 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onStop() {
         super.onStop();
-        try {
-            DatabaseReference ref = FirebaseDatabase.getInstance().getReference("users");
-            ref.child(mUserId).child("isActive").setValue(0);
-        } catch (Exception e) {
-            e.printStackTrace();
+        if(TextUtils.isEmpty(mUserId)){
+
+        }else {
+            try {
+                DatabaseReference ref = FirebaseDatabase.getInstance().getReference("users");
+                ref.child(mUserId).child("isActive").setValue(0);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
+
     }
 
     @Override
@@ -491,5 +582,22 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
+    }
+    @Override
+    public void onBackPressed() {
+        new AlertDialog.Builder(this)
+                .setIcon(android.R.drawable.ic_dialog_alert)
+                .setTitle(getResources().getString(R.string.app_name))
+                .setMessage("Are you sure you want to exit the app?")
+                .setPositiveButton("Yes", new DialogInterface.OnClickListener()
+                {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        finish();
+                    }
+
+                })
+                .setNegativeButton("No", null)
+                .show();
     }
 }

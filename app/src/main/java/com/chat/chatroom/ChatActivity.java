@@ -91,7 +91,7 @@ public class ChatActivity extends AppCompatActivity {
     private AdView adView;
 
     final private String FCM_API = "https://fcm.googleapis.com/fcm/send";
-    final private String serverKey = "key=" + "AAAABSdzqAA:APA91bG0Ando5tKZZYCtlsvw-y-G2x9Ca_cLJWc8ZKjXpGw7tGgEjTPsDWeRU2kPZHyMbZpOVoSFdzGv7_R3q2lpm8KSJO_0gOhQMa4f3_Dm0sZDPg18vTmUE_B5v2eYMAzxcK0Wr1Mo";
+    final private String serverKey = "key=" + "";
     final private String contentType = "application/json";
     final String TAG = "NOTIFICATION TAG";
 
